@@ -7,7 +7,7 @@ import io
 app = Flask(__name__)
 
 # Set your Google Cloud Storage bucket name
-BUCKET_NAME = os.environ.get('BUCKET_NAME')
+BUCKET_NAME = "cloudnative_bucket"
 
 # Initialize Google Cloud Storage client
 storage_client = storage.Client()
