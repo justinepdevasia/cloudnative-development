@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload and Showcase</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Upload and View Images</h1>
+
+        <form action="/" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" accept="image/*">
+            <button type="submit">Upload</button>
+        </form>
+
+        <div class="gallery">
+            {% for image in images %}
+            <div class="image">
+                <img src="{{ url_for('get_image', filename=image) }}" alt="Uploaded Image">
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
