@@ -1,4 +1,5 @@
 import os
+import hashlib
 from flask import Flask, request, redirect, url_for, render_template, send_file, jsonify, session
 from google.cloud import storage
 from werkzeug.utils import secure_filename
@@ -25,7 +26,7 @@ firebase = pyrebase.initialize_app(FIREBASE_CONFIG)
 auth = firebase.auth()
 
 # Configure Google Cloud Storage
-BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "cloudnative_bucket")  # Use env var
+BUCKET_NAME = "cloudnative_bucket"  # Replace with your actual bucket name
 storage_client = storage.Client()
 bucket = storage_client.bucket(BUCKET_NAME)
 
@@ -40,10 +41,14 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def upload_to_gcs(file, filename):
-    blob = bucket.blob(filename)
+# Generate a unique hash ID based on the user's email
+def generate_user_hash(email):
+    return hashlib.sha256(email.encode()).hexdigest()
+
+def upload_to_gcs(file, filename, user_hash):
+    blob = bucket.blob(f"users/{user_hash}/{filename}")
     blob.upload_from_file(file, content_type=file.content_type)
-    return filename
+    return f"users/{user_hash}/{filename}"
 
 def login_required(f):
     @wraps(f)
@@ -54,16 +59,21 @@ def login_required(f):
     return decorated_function
 
 def analyze_image(file):
+    # Save file temporarily
     temp_path = f"/tmp/{file.filename}"
     file.save(temp_path)
     
+    # Upload to Gemini
     img = genai.upload_file(temp_path, mime_type=file.content_type)
     
+    # Generate content
     prompt = "Provide a caption and a detailed description for this image. Format the response as 'Caption: [caption]\nDescription: [description]'"
     response = model.generate_content([img, prompt])
     
+    # Clean up temporary file
     os.remove(temp_path)
     
+    # Parse the response
     result = response.text.split('\n', 1)
     caption = result[0].replace('Caption: ', '').strip()
     description = result[1].replace('Description: ', '').strip() if len(result) > 1 else "No description available"
@@ -73,7 +83,7 @@ def analyze_image(file):
 @app.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
-    user_email = session['user']
+    user_hash = session['user_hash']
     
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -87,14 +97,21 @@ def index():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             
+            # Store original file position
             original_position = file.tell()
-            caption, description = analyze_image(file)
-            file.seek(original_position)
-
-            user_filename = f"users/{user_email}/{filename}"
-            upload_to_gcs(file, user_filename)
             
-            info_filename = f"users/{user_email}/{os.path.splitext(filename)[0]}_info.txt"
+            # Analyze the image
+            caption, description = analyze_image(file)
+            
+            # Reset file position for upload
+            file.seek(original_position)
+            
+            # Upload the image to user-specific folder (based on hash)
+            user_filename = f"users/{user_hash}/{filename}"
+            upload_to_gcs(file, user_filename, user_hash)
+            
+            # Save caption and description in user-specific folder
+            info_filename = f"users/{user_hash}/{os.path.splitext(filename)[0]}_info.txt"
             info_content = f"Caption: {caption}\nDescription: {description}"
             info_blob = bucket.blob(info_filename)
             info_blob.upload_from_string(info_content)
@@ -103,24 +120,25 @@ def index():
 
         return jsonify({'error': 'File type not allowed'}), 400
 
+    # For GET request: List all image filenames in the user's folder
     try:
-        blobs = bucket.list_blobs(prefix=f"users/{user_email}/")
+        blobs = bucket.list_blobs(prefix=f"users/{user_hash}/")
         image_filenames = [
             blob.name 
             for blob in blobs 
             if not blob.name.endswith('_info.txt') and any(blob.name.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)
         ]
         
-        return render_template('index.html', images=image_filenames, user_email=user_email)
+        return render_template('index.html', images=image_filenames, user_hash=user_hash)
     except Exception as e:
-        print(f"Error listing blobs: {e}")
-        return render_template('index.html', images=[], user_email=user_email, error="Error loading images")
+        print(f"Error listing blobs: {e}")  # For debugging
+        return render_template('index.html', images=[], user_hash=user_hash, error="Error loading images")
 
 @app.route('/images/<path:filename>')
 @login_required
 def get_image(filename):
-    user_email = session['user']
-    blob = bucket.blob(f"users/{user_email}/{filename}")
+    user_hash = session['user_hash']
+    blob = bucket.blob(f"users/{user_hash}/{filename}")
     
     try:
         image_data = blob.download_as_bytes()
@@ -131,8 +149,8 @@ def get_image(filename):
 @app.route('/image-info/<path:filename>')
 @login_required
 def image_info(filename):
-    user_email = session['user']
-    info_filename = f"users/{user_email}/{os.path.splitext(filename)[0]}_info.txt"
+    user_hash = session['user_hash']
+    info_filename = f"users/{user_hash}/{os.path.splitext(filename)[0]}_info.txt"
     info_blob = bucket.blob(info_filename)
     
     try:
@@ -156,6 +174,7 @@ def register():
         try:
             user = auth.create_user_with_email_and_password(email, password)
             session['user'] = email
+            session['user_hash'] = generate_user_hash(email)
             return redirect(url_for('index'))
         except Exception as e:
             return render_template('register.html', error="Registration failed")
@@ -169,6 +188,7 @@ def login():
         try:
             user = auth.sign_in_with_email_and_password(email, password)
             session['user'] = email
+            session['user_hash'] = generate_user_hash(email)
             return redirect(url_for('index'))
         except Exception as e:
             return render_template('login.html', error="Invalid credentials")
@@ -177,6 +197,7 @@ def login():
 @app.route('/logout')
 def logout():
     session.pop('user', None)
+    session.pop('user_hash', None)
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
