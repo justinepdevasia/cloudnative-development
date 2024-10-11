@@ -3,34 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Gallery | Upload and Showcase</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>Professional Image Gallery</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Image Gallery</h1>
-
-        <form action="/" method="post" enctype="multipart/form-data">
-            <label for="file-upload" class="file-upload-label">Choose Image</label>
-            <input id="file-upload" type="file" name="file" accept="image/*" required>
+        <h1>Professional Image Gallery</h1>
+        
+        <form id="upload-form" class="upload-form" action="{{ url_for('index') }}" method="post" enctype="multipart/form-data">
+            <div class="file-input-wrapper">
+                <label for="file-upload" class="file-label">Choose file</label>
+                <input id="file-upload" type="file" name="file" accept="image/*">
+                <span id="file-name" class="file-name"></span>
+            </div>
             <button type="submit">Upload</button>
-        </form>
-
-        <div class="progress-container">
-            <div class="progress-bar">
+            <div id="progress-bar" class="progress-bar">
                 <div class="progress"></div>
             </div>
-            <p class="progress-text">Uploading...</p>
-        </div>
+        </form>
 
-        <div class="gallery">
+        <div id="gallery" class="gallery">
             {% for image in images %}
-            <div class="image">
-                <img src="{{ url_for('get_image', filename=image) }}" alt="Uploaded Image">
-            </div>
+                <div class="gallery-item" data-filename="{{ image }}">
+                    <img src="{{ url_for('get_image', filename=image) }}" alt="{{ image }}">
+                </div>
             {% endfor %}
         </div>
     </div>
+
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <img id="modalImage" class="modal-image">
+            <p id="modalCaption" class="modal-caption"></p>
+            <p id="modalDescription" class="modal-description"></p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
 </body>
 </html>
