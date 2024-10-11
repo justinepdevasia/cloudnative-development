@@ -47,7 +47,7 @@ def generate_user_hash(email):
 
 def upload_to_gcs(file, filename, user_hash):
     filename = secure_filename(filename)  # Ensure safe filename
-    blob = bucket.blob(f"users/{user_hash}/{filename}")
+    blob = bucket.blob(f"users/{user_hash}/{filename}")  # Avoid duplicating the user_hash in filename
     blob.upload_from_file(file, content_type=file.content_type)
     return f"users/{user_hash}/{filename}"
 
@@ -103,8 +103,7 @@ def index():
             file.seek(0)
             
             # Upload the image to user-specific folder (based on hash)
-            user_filename = f"users/{user_hash}/{filename}"
-            upload_to_gcs(file, user_filename, user_hash)
+            user_filename = upload_to_gcs(file, filename, user_hash)
             
             # Save caption and description in user-specific folder
             info_filename = f"users/{user_hash}/{os.path.splitext(filename)[0]}_info.txt"
