@@ -25,7 +25,7 @@ firebase = pyrebase.initialize_app(FIREBASE_CONFIG)
 auth = firebase.auth()
 
 # Configure Google Cloud Storage
-BUCKET_NAME = "cloudnative_bucket"  # Replace with your actual bucket name
+BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "cloudnative_bucket")  # Use env var
 storage_client = storage.Client()
 bucket = storage_client.bucket(BUCKET_NAME)
 
@@ -40,10 +40,10 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def upload_to_gcs(file, filename, user_email):
-    blob = bucket.blob(f"users/{user_email}/{filename}")
+def upload_to_gcs(file, filename):
+    blob = bucket.blob(filename)
     blob.upload_from_file(file, content_type=file.content_type)
-    return f"users/{user_email}/{filename}"
+    return filename
 
 def login_required(f):
     @wraps(f)
@@ -54,21 +54,16 @@ def login_required(f):
     return decorated_function
 
 def analyze_image(file):
-    # Save file temporarily
     temp_path = f"/tmp/{file.filename}"
     file.save(temp_path)
     
-    # Upload to Gemini
     img = genai.upload_file(temp_path, mime_type=file.content_type)
     
-    # Generate content
     prompt = "Provide a caption and a detailed description for this image. Format the response as 'Caption: [caption]\nDescription: [description]'"
     response = model.generate_content([img, prompt])
     
-    # Clean up temporary file
     os.remove(temp_path)
     
-    # Parse the response
     result = response.text.split('\n', 1)
     caption = result[0].replace('Caption: ', '').strip()
     description = result[1].replace('Description: ', '').strip() if len(result) > 1 else "No description available"
@@ -92,20 +87,13 @@ def index():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             
-            # Store original file position
             original_position = file.tell()
-            
-            # Analyze the image
             caption, description = analyze_image(file)
-            
-            # Reset file position for upload
             file.seek(original_position)
-            
-            # Upload the image to user-specific folder
+
             user_filename = f"users/{user_email}/{filename}"
-            upload_to_gcs(file, user_filename, user_email)
+            upload_to_gcs(file, user_filename)
             
-            # Save caption and description in user-specific folder
             info_filename = f"users/{user_email}/{os.path.splitext(filename)[0]}_info.txt"
             info_content = f"Caption: {caption}\nDescription: {description}"
             info_blob = bucket.blob(info_filename)
@@ -115,7 +103,6 @@ def index():
 
         return jsonify({'error': 'File type not allowed'}), 400
 
-    # For GET request: List all image filenames in the user's folder
     try:
         blobs = bucket.list_blobs(prefix=f"users/{user_email}/")
         image_filenames = [
@@ -126,7 +113,7 @@ def index():
         
         return render_template('index.html', images=image_filenames, user_email=user_email)
     except Exception as e:
-        print(f"Error listing blobs: {e}")  # For debugging
+        print(f"Error listing blobs: {e}")
         return render_template('index.html', images=[], user_email=user_email, error="Error loading images")
 
 @app.route('/images/<path:filename>')
