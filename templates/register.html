@@ -24,7 +24,9 @@
             {% endif %}
             <button type="submit">Register</button>
         </form>
-        <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
+        <div class="register-info"> <!-- Added this div -->
+            <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
+        </div>
     </div>
 </body>
 </html>
