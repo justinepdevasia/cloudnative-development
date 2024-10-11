@@ -132,14 +132,19 @@ def index():
 @app.route('/images/<path:filename>')
 @login_required
 def get_image(filename):
-    user_hash = session['user_hash']
-    blob = bucket.blob(f"users/{user_hash}/{filename}")
-    
+    # The user hash is no longer needed here since the full path is passed in `filename`
+    blob = bucket.blob(f"{filename}")
+
     try:
+        # Download the image data as bytes
         image_data = blob.download_as_bytes()
+
+        # Detect and return the correct MIME type for the file
         return send_file(io.BytesIO(image_data), mimetype=blob.content_type)
     except Exception as e:
+        print(f"Error retrieving image: {e}")  # Debugging output
         return jsonify({'error': 'Image not found'}), 404
+
 
 @app.route('/image-info/<path:filename>')
 @login_required
