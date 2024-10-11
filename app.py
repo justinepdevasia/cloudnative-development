@@ -149,21 +149,32 @@ def get_image(filename):
 @app.route('/image-info/<path:filename>')
 @login_required
 def image_info(filename):
-    user_hash = session['user_hash']
-    info_filename = f"users/{user_hash}/{os.path.splitext(filename)[0]}_info.txt"
+    # Use the provided filename and construct the info file's path based on it
+    info_filename = f"{os.path.splitext(filename)[0]}_info.txt"
     info_blob = bucket.blob(info_filename)
     
     try:
         if info_blob.exists():
+            # Download the info file as text
             info_content = info_blob.download_as_text()
-            caption, description = info_content.split('\n')
+
+            # Attempt to split into caption and description
+            lines = info_content.split('\n')
+            if len(lines) >= 2:
+                caption = lines[0].split(': ')[1]
+                description = lines[1].split(': ')[1]
+            else:
+                caption = "No caption available"
+                description = "No description available"
+            
             return jsonify({
-                'caption': caption.split(': ')[1],
-                'description': description.split(': ')[1]
+                'caption': caption,
+                'description': description
             })
         else:
             return jsonify({'error': 'Image info not found'}), 404
     except Exception as e:
+        print(f"Error retrieving image info: {e}")  # For debugging
         return jsonify({'error': 'Error retrieving image info'}), 500
 
 @app.route('/register', methods=['GET', 'POST'])
