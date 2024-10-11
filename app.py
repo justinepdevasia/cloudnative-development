@@ -43,9 +43,10 @@ def allowed_file(filename):
 
 # Generate a unique hash ID based on the user's email
 def generate_user_hash(email):
-    return hashlib.sha256(email.encode()).hexdigest()
+    return hashlib.sha256(email.lower().encode()).hexdigest()  # Ensure email is lowercased for consistent hash
 
 def upload_to_gcs(file, filename, user_hash):
+    filename = secure_filename(filename)  # Ensure safe filename
     blob = bucket.blob(f"users/{user_hash}/{filename}")
     blob.upload_from_file(file, content_type=file.content_type)
     return f"users/{user_hash}/{filename}"
@@ -59,21 +60,16 @@ def login_required(f):
     return decorated_function
 
 def analyze_image(file):
-    # Save file temporarily
+    file.seek(0)  # Reset file pointer to the start
     temp_path = f"/tmp/{file.filename}"
     file.save(temp_path)
     
-    # Upload to Gemini
     img = genai.upload_file(temp_path, mime_type=file.content_type)
-    
-    # Generate content
     prompt = "Provide a caption and a detailed description for this image. Format the response as 'Caption: [caption]\nDescription: [description]'"
     response = model.generate_content([img, prompt])
     
-    # Clean up temporary file
-    os.remove(temp_path)
+    os.remove(temp_path)  # Clean up temporary file after use
     
-    # Parse the response
     result = response.text.split('\n', 1)
     caption = result[0].replace('Caption: ', '').strip()
     description = result[1].replace('Description: ', '').strip() if len(result) > 1 else "No description available"
@@ -104,7 +100,7 @@ def index():
             caption, description = analyze_image(file)
             
             # Reset file position for upload
-            file.seek(original_position)
+            file.seek(0)
             
             # Upload the image to user-specific folder (based on hash)
             user_filename = f"users/{user_hash}/{filename}"
