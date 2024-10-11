@@ -8,12 +8,12 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # Configure Google Cloud Storage
-BUCKET_NAME = "your_bucket_name"  # Replace with your actual bucket name
+BUCKET_NAME = "cloudnative_bucket"  # Replace with your actual bucket name
 storage_client = storage.Client()
 bucket = storage_client.bucket(BUCKET_NAME)
 
 # Configure Gemini API
-GEMINI_API_KEY = "your_gemini_api_key"  # Replace with your actual Gemini API key
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
