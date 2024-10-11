@@ -103,7 +103,7 @@ def index():
             
             # Upload the image to user-specific folder
             user_filename = f"users/{user_email}/{filename}"
-            upload_to_gcs(file, user_filename)
+            upload_to_gcs(file, user_filename, user_email)
             
             # Save caption and description in user-specific folder
             info_filename = f"users/{user_email}/{os.path.splitext(filename)[0]}_info.txt"
