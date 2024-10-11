@@ -10,6 +10,11 @@
 <body>
     <div class="container">
         <h1>Professional Image Gallery</h1>
+
+        <div class="user-info">
+            <p>Logged in as: {{ user_email }}</p>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
         
         <form id="upload-form" class="upload-form" action="{{ url_for('index') }}" method="post" enctype="multipart/form-data">
             <div class="file-input-wrapper">
