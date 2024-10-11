@@ -45,6 +45,14 @@ def upload_to_gcs(file, filename, user_email):
     blob.upload_from_file(file, content_type=file.content_type)
     return f"users/{user_email}/{filename}"
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 def analyze_image(file):
     # Save file temporarily
     temp_path = f"/tmp/{file.filename}"
@@ -152,14 +160,6 @@ def image_info(filename):
             return jsonify({'error': 'Image info not found'}), 404
     except Exception as e:
         return jsonify({'error': 'Error retrieving image info'}), 500
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
