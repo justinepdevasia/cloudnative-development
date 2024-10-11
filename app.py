@@ -80,6 +80,7 @@ def analyze_image(file):
 @login_required
 def index():
     user_hash = session['user_hash']
+    user_email = session['user']
     
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -123,8 +124,9 @@ def index():
             for blob in blobs 
             if not blob.name.endswith('_info.txt') and any(blob.name.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)
         ]
-        
-        return render_template('index.html', images=image_filenames, user_hash=user_hash)
+
+        return render_template('index.html', images=image_filenames, user_hash=user_hash, user_email=user_email)
+
     except Exception as e:
         print(f"Error listing blobs: {e}")  # For debugging
         return render_template('index.html', images=[], user_hash=user_hash, error="Error loading images")
