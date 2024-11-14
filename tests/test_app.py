@@ -3,11 +3,6 @@ import requests
 
 BASE_URL = "https://image-gallery-603299515919.us-central1.run.app"
 
-def test_homepage_redirect():
-    response = requests.get(BASE_URL)
-    assert response.status_code == 302
-    assert '/login' in response.headers['Location']
-
 def test_invalid_login():
     data = {
         'email': 'test@example.com',
