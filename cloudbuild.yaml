@@ -3,7 +3,7 @@ steps:
     entrypoint: pip
     args: ["install", "-r", "requirements.txt", "-r", "requirements-test.txt"]
     id: Install
-  - name: "gcr.io/cloud-builders/python:3.9"
+  - name: python:3.9
     entrypoint: python
     args: ["-m", "pytest", "-v", "tests/test_app.py"]
     id: Tests
