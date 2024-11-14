@@ -1,4 +1,11 @@
 steps:
+  - name: python:3.9
+    entrypoint: pip
+    args: ["install", "-r", "requirements.txt", "-r", "requirements-test.txt"]
+  - name: python:3.9
+    entrypoint: pytest
+    args: ["-v", "--cov=app", "tests/test_app.py"]
+    id: Tests
   - name: gcr.io/cloud-builders/docker
     args:
       - build
